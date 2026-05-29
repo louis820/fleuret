@@ -5,14 +5,15 @@ description = "SLM baseline evaluation on GSM8K with MLflow tracking"
 readme = "README.MD"
 requires-python = ">=3.11"
 dependencies = [
-    "torch>=2.12",
-    "transformers>=5.9",
+    "torch>=2.4",                 # relâché : laisse vLLM tirer la version qu'il veut
+    "transformers>=5.9",          # gardé en 5.x (API dtype=, scripts inchangés)
     "accelerate>=1.13",
     "datasets>=4.8",
     "mlflow>=3.12",
     "peft>=0.13",
-    "trl>=0.12",
+    "trl>=1.5",                   # rollout_func (tool calling en boucle)
     "bitsandbytes>=0.44; platform_system == 'Linux'",
+    "vllm>=0.20; platform_system == 'Linux'",   # vLLM récent compatible transformers 5
 ]
 
 [tool.uv]
