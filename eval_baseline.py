@@ -36,17 +36,21 @@ def build_prompt(question: str) -> list[dict]:
     ]
 
 
-def evaluate(n: int, max_new_tokens: int) -> None:
-    model, tokenizer, device = load_model()
+def evaluate(n: int, max_new_tokens: int, verbose: bool = False,
+             adapter: str | None = None, quant: str | None = None) -> None:
+    model, tokenizer, device = load_model(adapter=adapter, quant=quant)
     gsm8k = load_gsm8k()
     test_set = gsm8k["test"].select(range(min(n, len(gsm8k["test"]))))
     n = len(test_set)
 
+    run_name = "qlora" if adapter else "baseline"
     mlflow.set_experiment(EXPERIMENT_NAME)
-    with mlflow.start_run(run_name="baseline"):
+    with mlflow.start_run(run_name=run_name):
         mlflow.log_params(
             {
                 "model": MODEL_NAME,
+                "adapter": adapter or "none",
+                "quant": quant or "none",
                 "dataset": "openai/gsm8k",
                 "config": "main",
                 "split": "test",
@@ -84,7 +88,18 @@ def evaluate(n: int, max_new_tokens: int) -> None:
                 }
             )
             running_acc = correct / (i + 1)
-            print(f"[{i + 1}/{n}] gold={gold!r} pred={pred!r} ok={ok} | acc={running_acc:.3f}")
+            if verbose:
+                print("\n" + "=" * 80)
+                print(f"[{i + 1}/{n}]  ok={ok}  (gold={gold!r}  pred={pred!r})")
+                print("-" * 80)
+                print("QUESTION:\n" + question)
+                print("-" * 80)
+                print("GÉNÉRATION COMPLÈTE:\n" + generation)
+                print("-" * 80)
+                print(f"gold={gold!r}  pred={pred!r}  exact_match={ok}  | acc={running_acc:.3f}")
+                print("=" * 80)
+            else:
+                print(f"[{i + 1}/{n}] gold={gold!r} pred={pred!r} ok={ok} | acc={running_acc:.3f}")
             mlflow.log_metric("running_accuracy", running_acc, step=i)
 
         elapsed = time.time() - t0
@@ -113,8 +128,17 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Éval baseline GSM8K + MLflow")
     parser.add_argument("--n", type=int, default=100, help="nb de questions du test set")
     parser.add_argument("--max-new-tokens", type=int, default=512)
+    parser.add_argument(
+        "--verbose", "-v", action="store_true",
+        help="affiche la question + la génération complète pour chaque sample",
+    )
+    parser.add_argument("--adapter", default=None,
+                        help="chemin d'un adapter LoRA à évaluer (ex: qlora-gsm8k)")
+    parser.add_argument("--quant", choices=["nf4", "fp4", "8bit"], default=None,
+                        help="quantif de la base (à matcher avec l'entraînement QLoRA)")
     args = parser.parse_args()
-    evaluate(args.n, args.max_new_tokens)
+    evaluate(args.n, args.max_new_tokens, args.verbose,
+             adapter=args.adapter, quant=args.quant)
 
 
 if __name__ == "__main__":

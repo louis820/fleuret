@@ -19,19 +19,53 @@ def get_device() -> str:
     return "cpu"
 
 
-def load_model(model_name: str = MODEL_NAME):
-    """Charge le tokenizer et le modèle, retourne (model, tokenizer, device)."""
+def load_model(model_name: str = MODEL_NAME, adapter: str | None = None,
+               quant: str | None = None):
+    """Charge le tokenizer et le modèle, retourne (model, tokenizer, device).
+
+    - adapter : chemin d'un adapter LoRA (PEFT) à brancher sur la base.
+    - quant   : 'nf4' | 'fp4' | '8bit' | None. Quantif bitsandbytes (CUDA only)
+                pour charger la base comme à l'entraînement QLoRA.
+    Les imports bitsandbytes/peft sont paresseux → aucun impact sur Mac/MPS.
+    """
     device = get_device()
-    print(f"Chargement de {model_name} sur {device} ...")
+    print(f"Chargement de {model_name} sur {device}"
+          + (f" (quant={quant})" if quant else "")
+          + (f" + adapter {adapter}" if adapter else "") + " ...")
 
     tokenizer = AutoTokenizer.from_pretrained(model_name)
-    model = AutoModelForCausalLM.from_pretrained(
-        model_name,
-        dtype="auto",  # bfloat16/float16 selon le hardware (transformers >= 5.x)
-    ).to(device)
-    model.eval()
 
-    print(f"Modèle chargé ({model.num_parameters() / 1e9:.2f} B paramètres).")
+    quant_cfg = None
+    if quant in ("nf4", "fp4"):
+        from transformers import BitsAndBytesConfig
+        quant_cfg = BitsAndBytesConfig(
+            load_in_4bit=True,
+            bnb_4bit_quant_type=quant,
+            bnb_4bit_compute_dtype=torch.bfloat16,
+            bnb_4bit_use_double_quant=True,
+        )
+    elif quant == "8bit":
+        from transformers import BitsAndBytesConfig
+        quant_cfg = BitsAndBytesConfig(load_in_8bit=True)
+
+    if quant_cfg is not None:
+        # device_map="auto" place le modèle quantifié ; pas de .to() ensuite.
+        model = AutoModelForCausalLM.from_pretrained(
+            model_name, quantization_config=quant_cfg,
+            device_map="auto", dtype=torch.bfloat16,
+        )
+    else:
+        model = AutoModelForCausalLM.from_pretrained(model_name, dtype="auto").to(device)
+
+    if adapter:
+        from peft import PeftModel
+        model = PeftModel.from_pretrained(model, adapter)
+
+    model.eval()
+    # device effectif (avec device_map="auto", le modèle est sur cuda:0).
+    device = str(next(model.parameters()).device)
+
+    print("Modèle chargé.")
     return model, tokenizer, device
 
 
