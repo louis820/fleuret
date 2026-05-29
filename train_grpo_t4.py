@@ -60,7 +60,6 @@ def main() -> None:
     p.add_argument("--lr", type=float, default=1e-6)
     p.add_argument("--beta", type=float, default=0.04)
     p.add_argument("--temperature", type=float, default=0.9)
-    p.add_argument("--max-prompt-length", type=int, default=384)
     p.add_argument("--max-completion-length", type=int, default=256)
     p.add_argument("--max-tool-calls", type=int, default=4)
     p.add_argument("--save-steps", type=int, default=25, help="checkpoint fréquent (Colab)")
@@ -90,7 +89,6 @@ def main() -> None:
         learning_rate=args.lr,
         beta=args.beta,
         temperature=args.temperature,
-        max_prompt_length=args.max_prompt_length,
         max_completion_length=args.max_completion_length,
         fp16=True,                       # T4 : fp16, surtout PAS bf16
         bf16=False,

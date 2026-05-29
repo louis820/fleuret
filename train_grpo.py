@@ -173,7 +173,6 @@ def main() -> None:
     p.add_argument("--lr", type=float, default=1e-6)
     p.add_argument("--beta", type=float, default=0.04, help="coeff KL")
     p.add_argument("--temperature", type=float, default=0.9)
-    p.add_argument("--max-prompt-length", type=int, default=512)
     p.add_argument("--max-completion-length", type=int, default=512)
     p.add_argument("--max-tool-calls", type=int, default=6)
     p.add_argument("--gpu-mem-util", type=float, default=0.35, help="part VRAM pour vLLM (colocate)")
@@ -209,7 +208,6 @@ def main() -> None:
         learning_rate=args.lr,
         beta=args.beta,
         temperature=args.temperature,
-        max_prompt_length=args.max_prompt_length,
         max_completion_length=args.max_completion_length,
         bf16=not args.no_bf16,
         fp16=args.no_bf16,
